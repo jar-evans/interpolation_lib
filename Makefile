@@ -13,3 +13,6 @@ $(OBJS): Makefile
 
 test: ${TARGETS}
 	python3 interp_test.py
+
+clean:
+	rm *.o *.so

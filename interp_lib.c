@@ -2,30 +2,10 @@
 #include <stdlib.h>
 #include <Python.h>
 
-static PyObject* py_lagrange(PyObject* self, PyObject* args) {
+double lagrange(double X[], double Y[], double x, int len) {
 
-    PyObject* X, *Y;
-    double x;
-    int i,j,k;
+    int i,j;
     double y = 0;
-
-    if(!PyArg_ParseTuple(args, "O|O|d", &X, &Y, &x)) {
-        return NULL;
-    }
-
-    if (PyObject_Length(X) != PyObject_Length(Y)) {
-        return NULL;
-    }
-
-    int len = PyObject_Length(X);
-
-    double c_X[len];
-    double c_Y[len];
-
-    for (k = 0; k < len; k++) {
-        c_X[k] = (double)PyLong_AsLong(PyList_GetItem(X, k));
-        c_Y[k] = (double)PyLong_AsLong(PyList_GetItem(Y, k));
-    }
 
     double P[len];
     double N[len];
@@ -38,94 +18,55 @@ static PyObject* py_lagrange(PyObject* self, PyObject* args) {
 
         for (j=0;j<len-1;j++) {
             if (i != j) {
-                N[i] *= x - c_X[j];
-                D[i] *= c_X[i] - c_X[j];
+                N[i] *= x - X[j];
+                D[i] *= X[i] - X[j];
             }
         }
 
-        P[i] = c_Y[i]*N[i]/D[i];
+        P[i] = Y[i]*N[i]/D[i];
         y += P[i];   
     }
-    return Py_BuildValue("d", y);
-
+    return y;
 }
 
-static PyObject* py_newton(PyObject* self, PyObject* args) {
+double newton(double X[], double Y[], double x, int len) {
 
-    PyObject* X, *Y;
-    double x;
-    int i,j,k;
+    int i, j, k;
+
     double y = 0;
-
-    if(!PyArg_ParseTuple(args, "O|O|d", &X, &Y, &x)) {
-        return NULL;
-    }
-
-    if (PyObject_Length(X) != PyObject_Length(Y)) {
-        return NULL;
-    }
-
-    int len = PyObject_Length(X);
 
     double difference_table[len][len];
 
-    double c_X[len];
-    double c_Y[len];
-
     for (k = 0; k < len; k++) {
-        c_X[k] = (double)PyLong_AsLong(PyList_GetItem(X, k));
-        c_Y[k] = (double)PyLong_AsLong(PyList_GetItem(Y, k));
-        difference_table[0][k] = c_Y[k];
+        difference_table[0][k] = Y[k];
     }
 
     for (i = 1; i < len; i++) {
         for (j = 0; j < len-i; j++) {
-            difference_table[i][j] = (difference_table[i-1][j+1] - difference_table[i-1][j])/(c_X[i+j] - c_X[j]);
+            difference_table[i][j] = (difference_table[i-1][j+1] - difference_table[i-1][j])/(X[i+j] - X[j]);
         }     
     }
 
     for (k = len-1; k >= 0; k--) {
-        y *= (x - c_X[k]);
+        y *= (x - X[k]);
         y += difference_table[k][0];
     }
 
-    return Py_BuildValue("d", y);
+    return y;
 
 }
 
-static PyObject* py_monomial(PyObject* self, PyObject* args) {
+double monomial(double X[], double Y[], double x, int len) {
 
-    PyObject* X, *Y;
-    double x;
-    int i,j,k;
+    int i, j, k;
     double y = 0;
-
-    if(!PyArg_ParseTuple(args, "O|O|d", &X, &Y, &x)) {
-        return NULL;
-    }
-
-    if (PyObject_Length(X) != PyObject_Length(Y)) {
-        return NULL;
-    }
-
-    int len = PyObject_Length(X);
-
     //Initialise Vandermonde
     double V[len][len];
-
-    double c_X[len];
-    double c_Y[len];
-
-    for (k = 0; k < len; k++) {
-        c_X[k] = (double)PyLong_AsLong(PyList_GetItem(X, k));
-        c_Y[k] = (double)PyLong_AsLong(PyList_GetItem(Y, k));
-    }
-    
     for (i = 0; i < len; i++) {
         for (j = 0; j < len; j++) {
             V[i][j] = 1;
             for (k = 0; k < j; k++) {
-                V[i][j] *= c_X[i];
+                V[i][j] *= X[i];
             }
         }
     }
@@ -164,7 +105,7 @@ static PyObject* py_monomial(PyObject* self, PyObject* args) {
         if(matrix[i][i] == 0.0)
         {
             printf("No inverse!\n");
-            return Py_BuildValue("d", 1);
+            exit(0);
         }
 		for (j = 0; j < len; j++) {
 
@@ -197,7 +138,7 @@ static PyObject* py_monomial(PyObject* self, PyObject* args) {
     for (i = 0; i < len; i++) {
         coeffs[i] = 0;
         for (j = 0; j<len; j++) {
-            coeffs[i] += inv[i][j]*c_Y[j];
+            coeffs[i] += inv[i][j]*Y[j];
         }
     }
     y = 0;
@@ -210,12 +151,122 @@ static PyObject* py_monomial(PyObject* self, PyObject* args) {
         y += w;
     }
 
-    return Py_BuildValue("d", y);
- 
+    return y;
 }
 
+static PyObject* py_lagrange(PyObject* self, PyObject* args) {
+
+    PyObject* X, *Y, *x;
+    int i;
+
+    if(!PyArg_ParseTuple(args, "O|O|O", &X, &Y, &x)) {
+        return NULL;
+    }
+
+    if (PyObject_Length(X) != PyObject_Length(Y)) {
+        return NULL;
+    }
+
+    int len = PyObject_Length(X);
+    int len_samples = PyObject_Length(x);
+
+    double c_X[len];
+    double c_Y[len];
+    double c_x[len_samples];
+    PyObject* y = PyList_New(len_samples);
+
+    for (i = 0; i < len; i++) {
+        c_X[i] = (double)PyLong_AsLong(PyList_GetItem(X, i));
+        c_Y[i] = (double)PyLong_AsLong(PyList_GetItem(Y, i));
+    }
+
+    for (i = 0; i < len_samples; i++) {
+        c_x[i] = (double)PyLong_AsLong(PyList_GetItem(x, i));
+    }
+
+    for (i = 0; i <len_samples; i++) {
+        PyList_SetItem(y, i, Py_BuildValue("f",lagrange(c_X, c_Y, c_x[i], len)));
+    }
+
+    return y;
 
 
+
+}
+
+static PyObject* py_newton(PyObject* self, PyObject* args) {
+
+    PyObject* X, *Y, *x;
+    int i;
+
+    if(!PyArg_ParseTuple(args, "O|O|O", &X, &Y, &x)) {
+        return NULL;
+    }
+
+    if (PyObject_Length(X) != PyObject_Length(Y)) {
+        return NULL;
+    }
+
+    int len = PyObject_Length(X);
+    int len_samples = PyObject_Length(x);
+
+    double c_X[len];
+    double c_Y[len];
+    double c_x[len_samples];
+    PyObject* y = PyList_New(len_samples);
+
+    for (i = 0; i < len; i++) {
+        c_X[i] = (double)PyLong_AsLong(PyList_GetItem(X, i));
+        c_Y[i] = (double)PyLong_AsLong(PyList_GetItem(Y, i));
+    }
+
+    for (i = 0; i < len_samples; i++) {
+        c_x[i] = (double)PyLong_AsLong(PyList_GetItem(x, i));
+    }
+
+    for (i = 0; i <len_samples; i++) {
+        PyList_SetItem(y, i, Py_BuildValue("f",newton(c_X, c_Y, c_x[i], len)));
+    }
+
+    return y;
+
+}
+
+static PyObject* py_monomial(PyObject* self, PyObject* args) {
+
+    PyObject* X, *Y, *x;
+    int i;
+
+    if(!PyArg_ParseTuple(args, "O|O|O", &X, &Y, &x)) {
+        return NULL;
+    }
+
+    if (PyObject_Length(X) != PyObject_Length(Y)) {
+        return NULL;
+    }
+
+    int len = PyObject_Length(X);
+    int len_samples = PyObject_Length(x);
+
+    double c_X[len];
+    double c_Y[len];
+    double c_x[len_samples];
+    PyObject* y = PyList_New(len_samples);
+
+    for (i = 0; i < len; i++) {
+        c_X[i] = (double)PyLong_AsLong(PyList_GetItem(X, i));
+        c_Y[i] = (double)PyLong_AsLong(PyList_GetItem(Y, i));
+    }
+    
+
+
+    for (i = 0; i <len_samples; i++) {
+        PyList_SetItem(y, i, Py_BuildValue("f",monomial(c_X, c_Y, c_x[i], len)));
+    }
+
+    return y;
+ 
+}
 
 static PyMethodDef interp_methods[] = {{"lagrange", py_lagrange, METH_VARARGS, NULL}, 
                                        {"newton", py_newton, METH_VARARGS, NULL},

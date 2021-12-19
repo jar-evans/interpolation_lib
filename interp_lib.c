@@ -154,6 +154,28 @@ double monomial(double X[], double Y[], double x, int len) {
     return y;
 }
 
+double l_spline(double X[], double Y[], double x, int len) {
+
+    int i;
+
+    double y = 0;
+
+    for (i = 0; i < len; i++) {
+        if (X[i] > x) {
+            break;
+        }
+    }
+
+    double a = X[i-1];
+
+    double dy = Y[i] - Y[i-1];
+    double dx = X[i] - X[i-1];
+
+    y = Y[i-1] + (dy/dx)*(x - a);
+    return y;
+
+}
+
 static PyObject* py_lagrange(PyObject* self, PyObject* args) {
 
     PyObject* X, *Y, *x;
@@ -268,9 +290,50 @@ static PyObject* py_monomial(PyObject* self, PyObject* args) {
  
 }
 
+static PyObject* py_l_spline(PyObject* self, PyObject* args) {
+
+    PyObject* X, *Y, *x;
+    int i;
+
+    if(!PyArg_ParseTuple(args, "O|O|O", &X, &Y, &x)) {
+        return NULL;
+    }
+
+    if (PyObject_Length(X) != PyObject_Length(Y)) {
+        return NULL;
+    }
+
+    int len = PyObject_Length(X);
+    int len_samples = PyObject_Length(x);
+
+    double c_X[len];
+    double c_Y[len];
+    double c_x[len_samples];
+    PyObject* y = PyList_New(len_samples);
+
+    for (i = 0; i < len; i++) {
+        c_X[i] = (double)PyLong_AsLong(PyList_GetItem(X, i));
+        c_Y[i] = (double)PyLong_AsLong(PyList_GetItem(Y, i));
+    }
+
+    for (i = 0; i < len_samples; i++) {
+        c_x[i] = (double)PyLong_AsLong(PyList_GetItem(x, i));
+    }
+
+    for (i = 0; i <len_samples; i++) {
+        PyList_SetItem(y, i, Py_BuildValue("f",l_spline(c_X, c_Y, c_x[i], len)));
+    }
+
+    return y;
+
+
+
+}
+
 static PyMethodDef interp_methods[] = {{"lagrange", py_lagrange, METH_VARARGS, NULL}, 
                                        {"newton", py_newton, METH_VARARGS, NULL},
                                        {"monomial", py_monomial, METH_VARARGS, NULL},
+                                       {"l_spline", py_l_spline, METH_VARARGS, NULL},
                                        {NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef moduleDef = {PyModuleDef_HEAD_INIT, "interp_lib", NULL, -1, interp_methods};

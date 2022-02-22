@@ -1,6 +1,14 @@
 #include <stdio.h> 
 #include <stdlib.h>
 #include <Python.h>
+#include <math.h>
+
+double chebyshev(double a, double b, int i, int len) {
+
+    double arg = (((2*i)-1)*M_PI)/(2*len);
+
+    return 0.5*(a+b) + 0.5*(b-a)*cos(arg);
+}
 
 double lagrange(double X[], double Y[], double x, int len) {
 
@@ -154,6 +162,25 @@ double monomial(double X[], double Y[], double x, int len) {
     return y;
 }
 
+double lin_spline(double X[], double Y[], double x, int len) {
+
+    int i = 0;
+    int j;
+    double y = 0;
+
+    while (X[i] <= x) {
+        i ++;
+    }
+
+    j = i;
+
+    float dy = Y[j] - Y[j-1];
+    float dx = X[j] - X[j-1];
+
+    y = Y[j-1] + (x - X[j-1])*dy/dx;
+    return y;
+}
+
 static PyObject* py_lagrange(PyObject* self, PyObject* args) {
 
     PyObject* X, *Y, *x;
@@ -189,8 +216,6 @@ static PyObject* py_lagrange(PyObject* self, PyObject* args) {
     }
 
     return y;
-
-
 
 }
 
@@ -264,13 +289,81 @@ static PyObject* py_monomial(PyObject* self, PyObject* args) {
         PyList_SetItem(y, i, Py_BuildValue("f",monomial(c_X, c_Y, c_x[i], len)));
     }
 
+
+
     return y;
  
+}
+
+static PyObject* py_lin_spline(PyObject* self, PyObject* args) {
+
+    PyObject* X, *Y, *x;
+    int i;
+
+    if(!PyArg_ParseTuple(args, "O|O|O", &X, &Y, &x)) {
+        return NULL;
+    }
+
+    if (PyObject_Length(X) != PyObject_Length(Y)) {
+        return NULL;
+    }
+
+    int len = PyObject_Length(X);
+    int len_samples = PyObject_Length(x);
+
+    double c_X[len];
+    double c_Y[len];
+    double c_x[len_samples];
+    PyObject* y = PyList_New(len_samples);
+
+    for (i = 0; i < len; i++) {
+        c_X[i] = (double)PyLong_AsLong(PyList_GetItem(X, i));
+        c_Y[i] = (double)PyLong_AsLong(PyList_GetItem(Y, i));
+    }
+
+    for (i = 0; i < len_samples; i++) {
+        c_x[i] = (double)PyLong_AsLong(PyList_GetItem(x, i));
+    }
+
+    for (i = 0; i <len_samples; i++) {
+        PyList_SetItem(y, i, Py_BuildValue("f",lin_spline(c_X, c_Y, c_x[i], len)));
+    }
+
+    return y;
+
+}
+
+static PyObject* py_chebyshev(PyObject* self, PyObject* args) {
+
+    PyObject* X;
+    int i, L;
+
+    if(!PyArg_ParseTuple(args, "O|i", &X, &L)) {
+        return NULL;
+    }
+
+    PyObject* y = PyList_New(L);
+
+    double A = (double)PyLong_AsLong(PyList_GetItem(X, 0));
+    double B = (double)PyLong_AsLong(PyList_GetItem(X, 1));
+    
+    for (i = 0; i <L; i++) {
+        printf("%f\n",chebyshev(A, B, i, L));
+    }
+
+    for (i = 0; i <L; i++) {
+        PyList_SetItem(y, i, Py_BuildValue("f",chebyshev(A, B, i, L)));
+    }
+
+    return y;
+
 }
 
 static PyMethodDef interp_methods[] = {{"lagrange", py_lagrange, METH_VARARGS, NULL}, 
                                        {"newton", py_newton, METH_VARARGS, NULL},
                                        {"monomial", py_monomial, METH_VARARGS, NULL},
+                                       {"lin_spline", py_lin_spline, METH_VARARGS, NULL},
+                                       {"chebyshev", py_chebyshev, METH_VARARGS, NULL},
                                        {NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef moduleDef = {PyModuleDef_HEAD_INIT, "interp_lib", NULL, -1, interp_methods};

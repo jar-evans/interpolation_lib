@@ -6,13 +6,21 @@ import matplotlib.pyplot as plt
 from time import time
 
 if __name__ == "__main__":
-    X = [0, 2, 4, 6, 8]
-    Y = [0, 4, 16, 36, 64]
-    x = [0, 1, 3, 5, 7, 9]
 
-    plt.scatter(X, Y)
-    # plt.plot(x, interp.newton(X, Y, x))
-    # plt.plot(x, interp.lagrange(X, Y, x))
-    # plt.plot(x, interp.monomial(X, Y, x))
-    plt.plot(x, interp.l_spline(X, Y, x))
+    X = [0.4, 1.1, 2.8, 3.4, 4.2, 5.5, 6.8, 7.8, 8.1, 9.6, 10]
+    Y = [i*i*i for i in X]
+    x = interp.chebyshev([0, 10], 10)
+
+    y_lagrange = interp.lagrange(X, Y, x)
+    y_newton = interp.newton(X, Y, x)
+    
+    y_lin_spline = interp.lin_spline(X, Y, x)
+
+    plt.plot(x, y_lagrange, label='Lagrange', marker='D')
+    plt.plot(x, y_newton, label='Newton', marker='x')
+
+    plt.plot(x, y_lin_spline, label='Linear splines', marker='+')
+
+    plt.legend()
+
     plt.show()
